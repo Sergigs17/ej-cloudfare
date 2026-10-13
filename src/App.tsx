@@ -1,148 +1,98 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import cloudflareLogo from './assets/cloudflare.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
-  const [name, setName] = useState('unknown')
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started with Cloudflare</h1>
-          <p>
-            Edit <code>src/App.tsx</code> or <code>worker/index.ts</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <ul style={{ display: 'flex', gap: '1rem', listStyle: 'none', padding: 0 }}>
-          <li>
-            <button
-              className="counter"
-              onClick={() => setCount((count) => count + 1)}
-            >
-              Count is {count}
-            </button>
-          </li>
-          <li>
-          <button
-            className="counter"
-            onClick={() => {
-              fetch('/api/')
-                .then((res) => res.json())
-                .then((data) => setName(data.name))
-            }}
-            aria-label='get name'
-          >
-            Name from API is: {name}
-          </button>
-          </li>
-        </ul>
-
-
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-            <li>
-              <a href="https://workers.cloudflare.com/" target="_blank">
-                <img className="button-icon" src={cloudflareLogo} alt="" />
-                Workers Docs
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+interface Tasca {
+  id: number;
+  titol: string;
+  feta: number;
+  creada: string;
 }
 
-export default App
+export default function App() {
+  const [tasques, setTasques] = useState<Tasca[]>([]);
+  const [titol, setTitol] = useState("");
+  const [error, setError] = useState("");
+
+  async function carrega() {
+    const resposta = await fetch("/api/tasques");
+    setTasques(await resposta.json());
+  }
+
+  // En obrir la pàgina, demanem les tasques a l'API
+  useEffect(() => {
+    fetch("/api/tasques")
+      .then((resposta) => resposta.json())
+      .then(setTasques);
+  }, []);
+
+  async function afegeix(e: React.FormEvent) {
+    e.preventDefault();
+    const resposta = await fetch("/api/tasques", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ titol }),
+    });
+    if (!resposta.ok) {
+      setError((await resposta.json()).error);
+      return;
+    }
+    setError("");
+    setTitol("");
+    carrega();
+  }
+
+  async function canviaEstat(id: number) {
+    await fetch(`/api/tasques/${id}`, { method: "PATCH" });
+    carrega();
+  }
+
+  async function esborra(id: number) {
+    await fetch(`/api/tasques/${id}`, { method: "DELETE" });
+    carrega();
+  }
+
+  const pendents = tasques.filter((t) => t.feta === 0).length;
+
+  return (
+    <main>
+      <h1>PratTasques</h1>
+      <p className="subtitol">React + Cloudflare Workers + D1 (SQLite)</p>
+
+      <form onSubmit={afegeix}>
+        <input
+          value={titol}
+          onChange={(e) => setTitol(e.target.value)}
+          placeholder="Què has de fer?"
+          aria-label="Títol de la tasca"
+        />
+        <button type="submit">Afegeix</button>
+      </form>
+      {error && <p className="error">{error}</p>}
+
+      <p className="comptador">{pendents} pendents de {tasques.length}</p>
+
+      <ul>
+        {tasques.map((t) => (
+          <li key={t.id} className={t.feta ? "feta" : ""}>
+            <label>
+              <input
+                type="checkbox"
+                checked={t.feta === 1}
+                onChange={() => canviaEstat(t.id)}
+              />
+              {t.titol}
+            </label>
+            <button
+              className="esborra"
+              onClick={() => esborra(t.id)}
+              aria-label={`Esborra ${t.titol}`}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <footer>Dades desades a Cloudflare D1 · codi a GitHub</footer>
+    </main>
+  );
+}
